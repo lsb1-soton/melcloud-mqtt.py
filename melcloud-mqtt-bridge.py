@@ -212,9 +212,9 @@ async def main():
                 config["melcloud"]["password"],
                 session=session)
         # lookup the device
-        devices = await pymelcloud.get_devices(token, session=session)
-        device = devices[pymelcloud.DEVICE_TYPE_ATW][0]
-        update_seconds = random.randint(0, 59)
+        all_devices = await pymelcloud.get_devices(token, session=session)
+        atw_devices = all_devices[pymelcloud.DEVICE_TYPE_ATW]#[0]
+        update_seconds = random.randint(0, 59) # different for each device
         log_file_and_mqtt("MELCloud Bridge connected and running", mqttc)
         sys.stderr.flush()
         while True:
