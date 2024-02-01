@@ -14,6 +14,8 @@ import os
 from datetime import datetime
 # from inspect import getmembers
 # from pprint import pprint
+from datetime import datetime, timedelta, timezone # tz aware timestamps
+import pytz
 
 
 def getwobs(dev):
@@ -222,117 +224,122 @@ async def main():
                 # perform logic on the device
                 for device in atw_devices
                     await device.update()
-                    # Name to append to node
-                    devname = device.name
-                    devname_clean = "".join(filter(str.isalnum,devname))
-                    thistemp = device.outside_temperature
-                    wobs = getwobs(device)
-                    nexttemp = getfromwobs(wobs, "Temperature")
-                    futuretemp = getfromwobs(wobs, "Temperature", 1)
-                    roomzone = device.zones[0] # only first zone required
-                    roomtemp = roomzone.room_temperature
-                    nextmode = roomzone.operation_mode
-                    # Handle any control messages that have arrived
-                    while not q.empty():
-                        message = q.get()
-                        if message is None:
-                            continue
-                        elif ((message == "melcloud/control/pause: off")
-                              and ("P" in buttons)):
-                            buttons.remove("P")
-                        elif ((message == "melcloud/control/pause: on")
-                              and ("P" not in buttons)):
-                            buttons.add("P")
-                        elif (message == "melcloud/control/mode: heat"):
-                            nextmode = "curve"
-                        elif (message.startswith("melcloud/control/mode: ")):
-                            nextmode = "heat-thermostat"
-                        elif (message.startswith("melcloud/control/temperature:")):
-                            set_temp = float(message.split(" ")[-1])
-                        elif (message.startswith(
-                                "melcloud/control/tank_temperature")):
-                            await set_hot_water_target(device,
-                                                       message.split(" ")[-1])
-                        elif (message == "melcloud/control/water: heat"):
-                            await set_force_hot_water(device)
-                        log_file_and_mqtt("MQTT %s" % (message.replace(":", "")),
-                                          mqttc)
-                    # consider heating temperature and mode
-                    if (not device.holiday_mode
-                            and not (device.status == "defrost")):
-                        # Switch main heating between thermostat, curve and flow
-                        # modes based on MQTT commands. Set thermostat
-                        # temperature low, like 16 degrees, as a safeguard for
-                        # a dead process or melcloud connection, and we can use
-                        # heat-thermostat mode here as a proxy for "off".
-                        # Temperatures over 26 are regarded as flow targets and
-                        # 26 and below as room targets.
-                        if set_temp and set_temp > 26:
-                            nextmode = "heat-flow"
-                            await roomzone.set_target_heat_flow_temperature(
-                                set_temp)
-                            set_temp = None
-                        elif set_temp and set_temp <= 26:
-                            nextmode = "heat-thermostat"
-                            await roomzone.set_target_temperature(set_temp)
-                            set_temp = None
-                        if nextmode != roomzone.operation_mode:
-                            await roomzone.set_operation_mode(nextmode)
-                            log_file_and_mqtt(
-                                "%s at %s to %s" % (nextmode, roomtemp, nexttemp),
-                                mqttc)
-                        sys.stderr.flush()
-                    # pprint(device._device_conf)
-                    data = {
-                        "OutdoorTemperature": thistemp,
-                        "OutdoorTemperatureForecast1": nexttemp,
-                        "OutdoorTemperatureForecast2": futuretemp,
-                    }
-                    interesting = device._device_conf["Device"]
-                    for key in sensor_props:
-                        if key not in data:
-                            try:
-                                v = float(interesting[key])
-                                data[key] = v
-                            except:
+                    last_seen = device.last_seen
+                    now_time = datetime.now(timezone.utc)   # get current datetime)
+                    a_bit_earlier = now_time + timedelta(seconds=-60)  # take 60 seconds from the current datetime           
+                    time_diff = last_seen - a_bit_earlier # should be greater than zero if data has updated 
+                    if time_diff.total_seconds() > 0
+                        # Name to append to node
+                        devname = device.name
+                        devname_clean = "".join(filter(str.isalnum,devname)) # remove spaces, special characters etc.
+                        thistemp = device.outside_temperature
+                        wobs = getwobs(device)
+                        nexttemp = getfromwobs(wobs, "Temperature")
+                        futuretemp = getfromwobs(wobs, "Temperature", 1)
+                        roomzone = device.zones[0] # only first zone required
+                        roomtemp = roomzone.room_temperature
+                        nextmode = roomzone.operation_mode
+                        # Handle any control messages that have arrived
+                        while not q.empty():
+                            message = q.get()
+                            if message is None:
+                                continue
+                            elif ((message == "melcloud/control/pause: off")
+                                  and ("P" in buttons)):
+                                buttons.remove("P")
+                            elif ((message == "melcloud/control/pause: on")
+                                  and ("P" not in buttons)):
+                                buttons.add("P")
+                            elif (message == "melcloud/control/mode: heat"):
+                                nextmode = "curve"
+                            elif (message.startswith("melcloud/control/mode: ")):
+                                nextmode = "heat-thermostat"
+                            elif (message.startswith("melcloud/control/temperature:")):
+                                set_temp = float(message.split(" ")[-1])
+                            elif (message.startswith(
+                                    "melcloud/control/tank_temperature")):
+                                await set_hot_water_target(device,
+                                                           message.split(" ")[-1])
+                            elif (message == "melcloud/control/water: heat"):
+                                await set_force_hot_water(device)
+                            log_file_and_mqtt("MQTT %s" % (message.replace(":", "")),
+                                              mqttc)
+                        # consider heating temperature and mode
+                        if (not device.holiday_mode
+                                and not (device.status == "defrost")):
+                            # Switch main heating between thermostat, curve and flow
+                            # modes based on MQTT commands. Set thermostat
+                            # temperature low, like 16 degrees, as a safeguard for
+                            # a dead process or melcloud connection, and we can use
+                            # heat-thermostat mode here as a proxy for "off".
+                            # Temperatures over 26 are regarded as flow targets and
+                            # 26 and below as room targets.
+                            if set_temp and set_temp > 26:
+                                nextmode = "heat-flow"
+                                await roomzone.set_target_heat_flow_temperature(
+                                    set_temp)
+                                set_temp = None
+                            elif set_temp and set_temp <= 26:
+                                nextmode = "heat-thermostat"
+                                await roomzone.set_target_temperature(set_temp)
+                                set_temp = None
+                            if nextmode != roomzone.operation_mode:
+                                await roomzone.set_operation_mode(nextmode)
+                                log_file_and_mqtt(
+                                    "%s at %s to %s" % (nextmode, roomtemp, nexttemp),
+                                    mqttc)
+                            sys.stderr.flush()
+                        # pprint(device._device_conf)
+                        data = {
+                            "OutdoorTemperature": thistemp,
+                            "OutdoorTemperatureForecast1": nexttemp,
+                            "OutdoorTemperatureForecast2": futuretemp,
+                        }
+                        interesting = device._device_conf["Device"]
+                        for key in sensor_props:
+                            if key not in data:
                                 try:
-                                    b = bool(interesting[key])
-                                    v = 0
-                                    if b:
-                                        v = 1
+                                    v = float(interesting[key])
                                     data[key] = v
                                 except:
-                                    log_file_and_mqtt(
-                                        key + " is not numeric or boolean", mqttc)
-                        # data[key] = device._device_conf["Device"][key]
-                    # print(json.dumps(data), file=sys.stderr)
-                    datastr = json.dumps(data, separators=(",", ":"))
-                    if "emoncms" in config.keys():
-                        # Add cleaned device name to the emoncms node name
-                        reply = requests.get(
-                            config["emoncms"]["posturl"], {
-                                "apikey": config["emoncms"]["apikey"],
-                                "node": config["emoncms"]["node"]+devname_clean,
-                                "data": datastr
-                            },
-                            timeout=60)
-                        if reply.text != "ok":
-                            log_file_and_mqtt("%s sending %s" %
-                                              (reply.text, datastr),
-                                              mqttc)
-                            sys.stderr.flush()
-                    mqttc.publish(
-                        "melcloud/status/mode", "heat" if
-                        ((nextmode != "heat-thermostat")
-                         or (int(data["OperationMode"]) == 2)) else "auto")
-                    mqttc.publish(
-                        "melcloud/status/water", "heat" if
-                        (int(data["OperationMode"]) == 1) else "auto")
-                    mqttc.publish("melcloud/status/values", datastr)
-                    mqttc.publish("melcloud/status/action",
-                                  actions[int(data["WaterPump1Status"])])
-                    time.sleep(1.1)
-            time.sleep(0.1)
+                                    try:
+                                        b = bool(interesting[key])
+                                        v = 0
+                                        if b:
+                                            v = 1
+                                        data[key] = v
+                                    except:
+                                        log_file_and_mqtt(
+                                            key + " is not numeric or boolean", mqttc)
+                            # data[key] = device._device_conf["Device"][key]
+                        # print(json.dumps(data), file=sys.stderr)
+                        datastr = json.dumps(data, separators=(",", ":"))
+                        if "emoncms" in config.keys():
+                            # Add cleaned device name to the emoncms node name
+                            reply = requests.get(
+                                config["emoncms"]["posturl"], {
+                                    "apikey": config["emoncms"]["apikey"],
+                                    "node": config["emoncms"]["node"]+devname_clean,
+                                    "data": datastr
+                                },
+                                timeout=60)
+                            if reply.text != "ok":
+                                log_file_and_mqtt("%s sending %s" %
+                                                  (reply.text, datastr),
+                                                  mqttc)
+                                sys.stderr.flush()
+                        mqttc.publish(
+                            "melcloud/status/mode", "heat" if
+                            ((nextmode != "heat-thermostat")
+                             or (int(data["OperationMode"]) == 2)) else "auto")
+                        mqttc.publish(
+                            "melcloud/status/water", "heat" if
+                            (int(data["OperationMode"]) == 1) else "auto")
+                        mqttc.publish("melcloud/status/values", datastr)
+                        mqttc.publish("melcloud/status/action",
+                                      actions[int(data["WaterPump1Status"])])
+                        time.sleep(1.1)
+            time.sleep(2)
         await session.close()
         mqttc.loop_stop()
 print(
