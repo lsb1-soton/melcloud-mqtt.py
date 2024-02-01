@@ -225,9 +225,10 @@ async def main():
                 for device in atw_devices:
                     await device.update()
                     last_seen = device.last_seen
-                    now_time = datetime.now(timezone.utc)   # get current datetime)
+                    now_time = datetime.now(timezone.utc)   # get current datetime
                     a_bit_earlier = now_time + timedelta(seconds=-60)  # take 60 seconds from the current datetime           
                     time_diff = last_seen - a_bit_earlier # should be greater than zero if data has updated 
+                    print('time diff: ',time_diff)
                     if time_diff.total_seconds() > 0:
                         # Name to append to node
                         devname = device.name
@@ -324,8 +325,8 @@ async def main():
                                 },
                                 timeout=60)
                             if reply.text != "ok":
-                                log_file_and_mqtt("%s sending %s" %
-                                                  (reply.text, datastr),
+                                log_file_and_mqtt("%s %s sending %s" %
+                                                  (devname_clean, reply.text, datastr),
                                                   mqttc)
                                 sys.stderr.flush()
                         mqttc.publish(
