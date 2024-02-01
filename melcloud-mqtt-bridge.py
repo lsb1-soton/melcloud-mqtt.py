@@ -220,7 +220,7 @@ async def main():
         while True:
             if (math.floor(time.time()) % 120) == update_seconds:
                 # perform logic on the device
-                for device in devices
+                for device in atw_devices
                     await device.update()
                     thistemp = device.outside_temperature
                     wobs = getwobs(device)
