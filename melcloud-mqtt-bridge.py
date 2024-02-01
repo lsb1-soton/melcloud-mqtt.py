@@ -222,6 +222,9 @@ async def main():
                 # perform logic on the device
                 for device in atw_devices
                     await device.update()
+                    # Name to append to node
+                    devname = device.name
+                    devname_clean = "".join(filter(str.isalnum,devname))
                     thistemp = device.outside_temperature
                     wobs = getwobs(device)
                     nexttemp = getfromwobs(wobs, "Temperature")
@@ -305,11 +308,11 @@ async def main():
                     # print(json.dumps(data), file=sys.stderr)
                     datastr = json.dumps(data, separators=(",", ":"))
                     if "emoncms" in config.keys():
-                        # need custom node per device
+                        # Add cleaned device name to the emoncms node name
                         reply = requests.get(
                             config["emoncms"]["posturl"], {
                                 "apikey": config["emoncms"]["apikey"],
-                                "node": config["emoncms"]["node"],
+                                "node": config["emoncms"]["node"]+devname_clean,
                                 "data": datastr
                             },
                             timeout=60)
