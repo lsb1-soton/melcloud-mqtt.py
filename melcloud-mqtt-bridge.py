@@ -223,10 +223,11 @@ async def main():
             if (math.floor(time.time()) % 120) == update_seconds:
                 # perform logic on the device
                 for device in atw_devices:
+                    print(device.name)
                     await device.update()
                     last_seen = device.last_seen
                     now_time = datetime.now(timezone.utc)   # get current datetime
-                    a_bit_earlier = now_time + timedelta(seconds=-60)  # take 60 seconds from the current datetime           
+                    a_bit_earlier = now_time + timedelta(seconds=-120)  # take 60 seconds from the current datetime           
                     time_diff = last_seen - a_bit_earlier # should be greater than zero if data has updated 
                     print('time diff: ',time_diff)
                     if time_diff.total_seconds() > 0:
