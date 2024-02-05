@@ -11,10 +11,9 @@ import time
 import math
 import sys
 import os
-from datetime import datetime
+from datetime import datetime, timedelta, timezone # tz aware timestamps
 # from inspect import getmembers
 # from pprint import pprint
-from datetime import datetime, timedelta, timezone # tz aware timestamps
 import pytz
 
 
@@ -223,7 +222,7 @@ async def main():
             if (math.floor(time.time()) % 120) == update_seconds:
                 # perform logic on the device
                 for device in atw_devices:
-                    #print(device.name)
+                    print(device.name, file=sys.stderr)
                     await device.update()
                     last_seen = device.last_seen
                     now_time = datetime.now(timezone.utc)   # get current datetime
