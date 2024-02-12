@@ -219,10 +219,12 @@ async def main():
         log_file_and_mqtt("MELCloud Bridge connected and running", mqttc)
         sys.stderr.flush()
         while True:
-            if (math.floor(time.time()) % 120) == update_seconds:
+            if (math.floor(time.time()) % 120) == update_seconds or True:
                 # perform logic on the device
                 for device in atw_devices:
+                    time.sleep(120 + random.randint(0,5))
                     print(device.name, file=sys.stderr)
+                    #breakpoint()
                     await device.update()
                     last_seen = device.last_seen
                     now_time = datetime.now(timezone.utc)   # get current datetime
@@ -241,6 +243,7 @@ async def main():
                         roomtemp = roomzone.room_temperature
                         nextmode = roomzone.operation_mode
                         # Handle any control messages that have arrived
+                        #breakpoint()
                         while not q.empty():
                             message = q.get()
                             if message is None:
@@ -339,7 +342,9 @@ async def main():
                         mqttc.publish("melcloud/status/values", datastr)
                         mqttc.publish("melcloud/status/action",
                                       actions[int(data["WaterPump1Status"])])
+                        #breakpoint()
                         time.sleep(1.1)
+            #breakpoint()
             time.sleep(2)
         await session.close()
         mqttc.loop_stop()
